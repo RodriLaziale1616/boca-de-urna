@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+}
+
+enum ElectionStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+model User {
+  id                 String        @id @default(cuid())
+  name               String
+  username           String        @unique
+  passwordHash       String
+  role               UserRole
+  active             Boolean       @default(true)
+  assignedElectionId String?
+  pollingPlaceId     String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  assignedElection   Election?     @relation("OperatorElection", fields: [assignedElectionId], references: [id], onDelete: SetNull)
+  pollingPlace       PollingPlace? @relation(fields: [pollingPlaceId], references: [id], onDelete: SetNull)
+  votes              Vote[]        @relation("OperatorVotes")
+  sessions           Session[]
+  auditLogs          AuditLog[]
+
+  @@index([role, assignedElectionId])
+}
+
+model Election {
+  id                     String         @id @default(cuid())
+  name                   String
+  city                   String
+  electionDate           DateTime
+  timezone               String         @default("America/Asuncion")
+  status                 ElectionStatus @default(DRAFT)
+  requireConfirmation    Boolean        @default(true)
+  resetDelaySeconds      Int            @default(2)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  candidates             Candidate[]
+  pollingPlaces          PollingPlace[]
+  operators              User[]         @relation("OperatorElection")
+  votes                  Vote[]
+
+  @@index([status])
+}
+
+model Candidate {
+  id           String   @id @default(cuid())
+  electionId   String
+  name         String
+  listLabel    String?
+  party        String?
+  ballotNumber String?
+  colorHex     String   @default("#D96570")
+  isNoResponse Boolean  @default(false)
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  election     Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  votes        Vote[]
+
+  @@index([electionId, active, sortOrder])
+}
+
+model PollingPlace {
+  id         String   @id @default(cuid())
+  electionId String
+  name       String
+  code       String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  operators  User[]
+  votes      Vote[]
+
+  @@index([electionId, active])
+}
+
+model Vote {
+  id             String       @id @default(cuid())
+  electionId     String
+  candidateId    String
+  operatorId     String
+  pollingPlaceId String?
+  requestId      String       @unique
+  createdAt      DateTime     @default(now())
+  election       Election     @relation(fields: [electionId], references: [id], onDelete: Restrict)
+  candidate      Candidate    @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  operator       User         @relation("OperatorVotes", fields: [operatorId], references: [id], onDelete: Restrict)
+  pollingPlace   PollingPlace? @relation(fields: [pollingPlaceId], references: [id], onDelete: SetNull)
+
+  @@index([electionId, createdAt])
+  @@index([electionId, candidateId])
+  @@index([electionId, operatorId])
+  @@index([pollingPlaceId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  csrfToken String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
