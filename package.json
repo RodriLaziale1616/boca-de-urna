@@ -1,0 +1,20 @@
+{
+  "name": "boca-de-urna",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/api", "apps/web"],
+  "scripts": {
+    "dev": "concurrently -n API,WEB \"npm -w apps/api run dev\" \"npm -w apps/web run dev\"",
+    "build": "npm -w apps/api run prisma:generate && npm -w apps/web run build && npm -w apps/api run build",
+    "start": "npm -w apps/api run start",
+    "db:generate": "npm -w apps/api run prisma:generate",
+    "db:migrate": "npm -w apps/api run prisma:migrate",
+    "db:deploy": "npm -w apps/api run prisma:deploy"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
