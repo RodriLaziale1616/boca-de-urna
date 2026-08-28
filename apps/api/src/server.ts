@@ -9,6 +9,7 @@ import { authMiddleware, ensureBootstrapAdmin } from "./auth";
 import authRoutes from "./routes/auth";
 import operatorRoutes from "./routes/operator";
 import adminRoutes from "./routes/admin";
+import preparationRoutes from "./routes/preparation";
 import { env, isProduction } from "./env";
 import { prisma } from "./db";
 
@@ -54,6 +55,7 @@ app.get("/api/health", async (_req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/operator", operatorRoutes);
+app.use("/api/admin/preparation", preparationRoutes);
 app.use("/api/admin", adminRoutes);
 
 if (isProduction) {
