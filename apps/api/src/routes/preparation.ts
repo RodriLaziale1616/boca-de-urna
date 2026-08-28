@@ -19,16 +19,21 @@ const officialBodySchema = z.object({
   password: z.string().min(1).max(200)
 });
 
+const productionLockBodySchema = z.object({
+  confirmation: z.literal("BLOQUEAR PRODUCCION"),
+  password: z.string().min(1).max(200)
+});
+
 async function verifyAdminPassword(userId: string, password: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || user.role !== UserRole.ADMIN || !user.active) return false;
   return bcrypt.compare(password, user.passwordHash);
 }
 
-async function getOfficialLock(electionId: string) {
+async function getAuditLock(electionId: string, action: string) {
   return prisma.auditLog.findFirst({
     where: {
-      action: "START_OFFICIAL",
+      action,
       entityType: "Election",
       entityId: electionId
     },
@@ -40,15 +45,18 @@ router.get("/elections/:id/status", asyncHandler(async (req, res) => {
   const election = await prisma.election.findUnique({ where: { id: req.params.id } });
   if (!election) return res.status(404).json({ error: "Elección no encontrada" });
 
-  const lock = await getOfficialLock(election.id);
-  const [votes, operators] = await Promise.all([
+  const [officialLock, productionLock, votes, operators] = await Promise.all([
+    getAuditLock(election.id, "START_OFFICIAL"),
+    getAuditLock(election.id, "LOCK_PRODUCTION"),
     prisma.vote.count({ where: { electionId: election.id } }),
     prisma.user.count({ where: { role: UserRole.OPERATOR, assignedElectionId: election.id } })
   ]);
 
   res.json({
-    official: Boolean(lock),
-    officialStartedAt: lock?.createdAt ?? null,
+    official: Boolean(officialLock),
+    officialStartedAt: officialLock?.createdAt ?? null,
+    resetLocked: Boolean(productionLock),
+    resetLockedAt: productionLock?.createdAt ?? null,
     votes,
     operators
   });
@@ -65,9 +73,9 @@ router.post("/elections/:id/reset-test-data", requireCsrf, asyncHandler(async (r
   const election = await prisma.election.findUnique({ where: { id: req.params.id } });
   if (!election) return res.status(404).json({ error: "Elección no encontrada" });
 
-  const lock = await getOfficialLock(election.id);
-  if (lock) {
-    return res.status(409).json({ error: "Esta elección ya fue iniciada como operación oficial. El reset quedó bloqueado permanentemente." });
+  const productionLock = await getAuditLock(election.id, "LOCK_PRODUCTION");
+  if (productionLock) {
+    return res.status(409).json({ error: "Esta elección ya fue bloqueada para producción. Sus datos no pueden resetearse desde el sistema." });
   }
 
   const [voteCount, operatorCount, candidateCount, placeCount] = await Promise.all([
@@ -123,7 +131,7 @@ router.post("/elections/:id/start-official", requireCsrf, asyncHandler(async (re
   const election = await prisma.election.findUnique({ where: { id: req.params.id } });
   if (!election) return res.status(404).json({ error: "Elección no encontrada" });
 
-  const existingLock = await getOfficialLock(election.id);
+  const existingLock = await getAuditLock(election.id, "START_OFFICIAL");
   if (existingLock) {
     return res.status(409).json({ error: "La operación oficial ya fue iniciada para esta elección" });
   }
@@ -164,7 +172,39 @@ router.post("/elections/:id/start-official", requireCsrf, asyncHandler(async (re
     return nextElection;
   });
 
-  res.json({ election: updated, official: true });
+  res.json({ election: updated, official: true, resetLocked: false });
+}));
+
+router.post("/elections/:id/lock-production", requireCsrf, asyncHandler(async (req, res) => {
+  const body = productionLockBodySchema.parse(req.body);
+  const adminId = req.auth!.user.id;
+
+  if (!(await verifyAdminPassword(adminId, body.password))) {
+    return res.status(401).json({ error: "Contraseña de administrador incorrecta" });
+  }
+
+  const election = await prisma.election.findUnique({ where: { id: req.params.id } });
+  if (!election) return res.status(404).json({ error: "Elección no encontrada" });
+
+  const [officialLock, existingProductionLock] = await Promise.all([
+    getAuditLock(election.id, "START_OFFICIAL"),
+    getAuditLock(election.id, "LOCK_PRODUCTION")
+  ]);
+
+  if (!officialLock) return res.status(409).json({ error: "Primero iniciá la operación oficial" });
+  if (existingProductionLock) return res.status(409).json({ error: "La protección de producción ya está activa" });
+
+  const lock = await prisma.auditLog.create({
+    data: {
+      userId: adminId,
+      action: "LOCK_PRODUCTION",
+      entityType: "Election",
+      entityId: election.id,
+      metadata: { electionName: election.name }
+    }
+  });
+
+  res.json({ ok: true, resetLocked: true, resetLockedAt: lock.createdAt });
 }));
 
 export default router;
