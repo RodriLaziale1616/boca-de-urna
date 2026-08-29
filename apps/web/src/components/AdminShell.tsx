@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { BarChart3, LogOut, Menu, RotateCcw, Settings, Users, Vote, X } from "lucide-react";
+import { BarChart3, LogOut, Menu, MonitorUp, RotateCcw, Settings, Users, Vote, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import type { AuthUser } from "../types";
 
@@ -8,6 +8,7 @@ export default function AdminShell({ user, onLogout, children }: { user: AuthUse
   const nav = [
     { to: "/admin", label: "Resultados", icon: BarChart3 },
     { to: "/admin/operators", label: "Operadores", icon: Users },
+    { to: "/admin/transmission", label: "Transmisión", icon: MonitorUp },
     { to: "/admin/settings", label: "Configuración", icon: Settings },
     { to: "/admin/preparation", label: "Preparación", icon: RotateCcw }
   ];

@@ -10,6 +10,8 @@ import authRoutes from "./routes/auth";
 import operatorRoutes from "./routes/operator";
 import adminRoutes from "./routes/admin";
 import preparationRoutes from "./routes/preparation";
+import transmissionRoutes from "./routes/transmission";
+import tvPublicRoutes from "./routes/tvPublic";
 import { env, isProduction } from "./env";
 import { prisma } from "./db";
 
@@ -33,7 +35,7 @@ app.use(helmet({
   } : false
 }));
 app.use(compression());
-app.use(express.json({ limit: "60kb" }));
+app.use(express.json({ limit: "280kb" }));
 app.use(cookieParser());
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -55,7 +57,9 @@ app.get("/api/health", async (_req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/operator", operatorRoutes);
+app.use("/api/tv", tvPublicRoutes);
 app.use("/api/admin/preparation", preparationRoutes);
+app.use("/api/admin/transmission", transmissionRoutes);
 app.use("/api/admin", adminRoutes);
 
 if (isProduction) {

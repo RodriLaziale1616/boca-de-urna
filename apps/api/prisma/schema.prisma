@@ -39,20 +39,34 @@ model User {
 }
 
 model Election {
-  id                     String         @id @default(cuid())
-  name                   String
-  city                   String
-  electionDate           DateTime
-  timezone               String         @default("America/Asuncion")
-  status                 ElectionStatus @default(DRAFT)
-  requireConfirmation    Boolean        @default(true)
-  resetDelaySeconds      Int            @default(2)
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
-  candidates             Candidate[]
-  pollingPlaces          PollingPlace[]
-  operators              User[]         @relation("OperatorElection")
-  votes                  Vote[]
+  id                       String         @id @default(cuid())
+  name                     String
+  city                     String
+  electionDate             DateTime
+  timezone                 String         @default("America/Asuncion")
+  status                   ElectionStatus @default(DRAFT)
+  requireConfirmation      Boolean        @default(true)
+  resetDelaySeconds        Int            @default(2)
+  brandName                String?
+  brandSubtitle            String?
+  brandLogoData            String?
+  brandPrimaryColor        String         @default("#C4161C")
+  brandSecondaryColor      String         @default("#111318")
+  brandBackgroundColor     String         @default("#080A0D")
+  brandSurfaceColor        String         @default("#15181E")
+  brandTextColor           String         @default("#FFFFFF")
+  tvTickerText             String?
+  tvPublicEnabled          Boolean        @default(false)
+  tvAccessToken            String?        @unique
+  tvShowClock              Boolean        @default(true)
+  tvShowTotal              Boolean        @default(true)
+  tvShowUpdatedAt          Boolean        @default(true)
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  candidates               Candidate[]
+  pollingPlaces            PollingPlace[]
+  operators                User[]         @relation("OperatorElection")
+  votes                    Vote[]
 
   @@index([status])
 }
@@ -92,16 +106,16 @@ model PollingPlace {
 }
 
 model Vote {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   electionId     String
   candidateId    String
   operatorId     String
   pollingPlaceId String?
-  requestId      String       @unique
-  createdAt      DateTime     @default(now())
-  election       Election     @relation(fields: [electionId], references: [id], onDelete: Restrict)
-  candidate      Candidate    @relation(fields: [candidateId], references: [id], onDelete: Restrict)
-  operator       User         @relation("OperatorVotes", fields: [operatorId], references: [id], onDelete: Restrict)
+  requestId      String        @unique
+  createdAt      DateTime      @default(now())
+  election       Election      @relation(fields: [electionId], references: [id], onDelete: Restrict)
+  candidate      Candidate     @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  operator       User          @relation("OperatorVotes", fields: [operatorId], references: [id], onDelete: Restrict)
   pollingPlace   PollingPlace? @relation(fields: [pollingPlaceId], references: [id], onDelete: SetNull)
 
   @@index([electionId, createdAt])
