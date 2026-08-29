@@ -18,6 +18,20 @@ export interface Election {
   status: "DRAFT" | "ACTIVE" | "CLOSED";
   requireConfirmation: boolean;
   resetDelaySeconds: number;
+  brandName?: string | null;
+  brandSubtitle?: string | null;
+  brandLogoData?: string | null;
+  brandPrimaryColor?: string;
+  brandSecondaryColor?: string;
+  brandBackgroundColor?: string;
+  brandSurfaceColor?: string;
+  brandTextColor?: string;
+  tvTickerText?: string | null;
+  tvPublicEnabled?: boolean;
+  tvAccessToken?: string | null;
+  tvShowClock?: boolean;
+  tvShowTotal?: boolean;
+  tvShowUpdatedAt?: boolean;
 }
 
 export interface Candidate {
@@ -52,4 +66,50 @@ export interface Operator {
   pollingPlaceId: string | null;
   pollingPlace?: { id?: string; name: string } | null;
   assignedElection?: { id: string; name: string } | null;
+}
+
+export interface TvElection {
+  id: string;
+  name: string;
+  city: string;
+  electionDate: string;
+  timezone: string;
+  status: "DRAFT" | "ACTIVE" | "CLOSED";
+  brandName: string | null;
+  brandSubtitle: string | null;
+  brandLogoData: string | null;
+  brandPrimaryColor: string;
+  brandSecondaryColor: string;
+  brandBackgroundColor: string;
+  brandSurfaceColor: string;
+  brandTextColor: string;
+  tvTickerText: string | null;
+  tvShowClock: boolean;
+  tvShowTotal: boolean;
+  tvShowUpdatedAt: boolean;
+}
+
+export interface TvData {
+  election: TvElection;
+  total: number;
+  candidates: (Candidate & { votes: number; percentage: number })[];
+  hourly: { hourLabel: string; total: number; candidates: { candidateId: string; votes: number }[] }[];
+  updatedAt: string;
+}
+
+export interface TransmissionConfig {
+  brandName: string | null;
+  brandSubtitle: string | null;
+  brandLogoData: string | null;
+  brandPrimaryColor: string;
+  brandSecondaryColor: string;
+  brandBackgroundColor: string;
+  brandSurfaceColor: string;
+  brandTextColor: string;
+  tvTickerText: string | null;
+  tvPublicEnabled: boolean;
+  tvAccessToken: string | null;
+  tvShowClock: boolean;
+  tvShowTotal: boolean;
+  tvShowUpdatedAt: boolean;
 }
