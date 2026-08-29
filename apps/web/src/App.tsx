@@ -8,6 +8,8 @@ import DashboardPage from "./pages/DashboardPage";
 import OperatorsPage from "./pages/OperatorsPage";
 import SettingsPage from "./pages/SettingsPage";
 import PreparationPage from "./pages/PreparationPage";
+import TransmissionPage from "./pages/TransmissionPage";
+import TvPage from "./pages/TvPage";
 import AdminShell from "./components/AdminShell";
 
 export default function App() {
@@ -23,6 +25,9 @@ export default function App() {
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
+
+  const tvMatch = window.location.pathname.match(/^\/tv\/([^/]+)\/?$/);
+  if (tvMatch) return <TvPage token={decodeURIComponent(tvMatch[1])}/>;
 
   if (loading) return <div className="splash"><div className="brand-mark">BU</div><span>Cargando...</span></div>;
 
@@ -41,6 +46,7 @@ export default function App() {
       <Routes>
         <Route path="/admin" element={<DashboardPage />} />
         <Route path="/admin/operators" element={<OperatorsPage />} />
+        <Route path="/admin/transmission" element={<TransmissionPage />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
         <Route path="/admin/preparation" element={<PreparationPage />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
