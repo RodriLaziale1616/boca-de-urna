@@ -332,7 +332,7 @@ router.get("/overview", asyncHandler(async (req, res) => {
   type HourRow = { hourLabel: string; candidateId: string; count: bigint };
   const hourlyRows = pollingPlaceId
     ? await prisma.$queryRaw<HourRow[]>(Prisma.sql`
-        SELECT to_char(date_trunc('hour', "createdAt" AT TIME ZONE ${election.timezone}), 'YYYY-MM-DD HH24:00') AS "hourLabel",
+        SELECT to_char(date_trunc('hour', ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${election.timezone}), 'YYYY-MM-DD HH24:00') AS "hourLabel",
                "candidateId" AS "candidateId",
                COUNT(*)::bigint AS "count"
         FROM "Vote"
@@ -341,7 +341,7 @@ router.get("/overview", asyncHandler(async (req, res) => {
         ORDER BY 1 ASC
       `)
     : await prisma.$queryRaw<HourRow[]>(Prisma.sql`
-        SELECT to_char(date_trunc('hour', "createdAt" AT TIME ZONE ${election.timezone}), 'YYYY-MM-DD HH24:00') AS "hourLabel",
+        SELECT to_char(date_trunc('hour', ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${election.timezone}), 'YYYY-MM-DD HH24:00') AS "hourLabel",
                "candidateId" AS "candidateId",
                COUNT(*)::bigint AS "count"
         FROM "Vote"

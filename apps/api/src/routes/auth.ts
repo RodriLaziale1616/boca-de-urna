@@ -13,7 +13,8 @@ const loginLimiter = rateLimit({
   limit: 20,
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  message: { error: "Demasiados intentos. Esperá unos minutos." }
+  skipSuccessfulRequests: true,
+  message: { error: "Demasiados intentos fallidos. Esperá unos minutos." }
 });
 
 router.post("/login", loginLimiter, asyncHandler(async (req, res) => {
