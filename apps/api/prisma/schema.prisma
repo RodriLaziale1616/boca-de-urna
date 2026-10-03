@@ -112,6 +112,7 @@ model Vote {
   operatorId     String
   pollingPlaceId String?
   requestId      String        @unique
+  capturedAt     DateTime?
   createdAt      DateTime      @default(now())
   election       Election      @relation(fields: [electionId], references: [id], onDelete: Restrict)
   candidate      Candidate     @relation(fields: [candidateId], references: [id], onDelete: Restrict)
@@ -119,6 +120,7 @@ model Vote {
   pollingPlace   PollingPlace? @relation(fields: [pollingPlaceId], references: [id], onDelete: SetNull)
 
   @@index([electionId, createdAt])
+  @@index([electionId, capturedAt])
   @@index([electionId, candidateId])
   @@index([electionId, operatorId])
   @@index([pollingPlaceId])

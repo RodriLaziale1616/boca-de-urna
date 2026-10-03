@@ -12,6 +12,28 @@ import TransmissionPage from "./pages/TransmissionPage";
 import TvPage from "./pages/TvPage";
 import AdminShell from "./components/AdminShell";
 
+const OPERATOR_CACHE_KEY = "bdu_last_operator_user";
+
+function cacheOperator(user: AuthUser | null) {
+  try {
+    if (user?.role === "OPERATOR") localStorage.setItem(OPERATOR_CACHE_KEY, JSON.stringify(user));
+    else localStorage.removeItem(OPERATOR_CACHE_KEY);
+  } catch {
+    // Storage can be unavailable in strict/private browser modes.
+  }
+}
+
+function readCachedOperator(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem(OPERATOR_CACHE_KEY);
+    if (!raw) return null;
+    const user = JSON.parse(raw) as AuthUser;
+    return user?.role === "OPERATOR" ? user : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,8 +43,12 @@ export default function App() {
       .then(data => {
         setCsrfToken(data.csrfToken);
         setUser(data.user);
+        cacheOperator(data.user);
       })
-      .catch(() => setUser(null))
+      .catch(() => {
+        if (!navigator.onLine) setUser(readCachedOperator());
+        else setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -32,11 +58,11 @@ export default function App() {
   if (loading) return <div className="splash"><div className="brand-mark">BU</div><span>Cargando...</span></div>;
 
   if (!user) {
-    return <LoginPage onLogin={(nextUser, token) => { setCsrfToken(token); setUser(nextUser); }} />;
+    return <LoginPage onLogin={(nextUser, token) => { setCsrfToken(token); setUser(nextUser); cacheOperator(nextUser); }} />;
   }
 
   const logout = async () => {
-    try { await api<void>("/api/auth/logout", { method: "POST" }); } finally { setUser(null); setCsrfToken(""); }
+    try { await api<void>("/api/auth/logout", { method: "POST" }); } finally { cacheOperator(null); setUser(null); setCsrfToken(""); }
   };
 
   if (user.role === "OPERATOR") return <OperatorPage user={user} onLogout={logout} />;
