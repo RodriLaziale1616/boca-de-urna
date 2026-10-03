@@ -6,6 +6,7 @@ import { prisma } from "../db";
 import { requireAuth, requireCsrf, requireRole } from "../auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { realtimeBus } from "../services/realtime";
+import { getCutRangeRows } from "../services/cutRanges";
 
 const router = Router();
 router.use(requireAuth, requireRole(UserRole.ADMIN));
@@ -329,26 +330,7 @@ router.get("/overview", asyncHandler(async (req, res) => {
     };
   }).sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name));
 
-  type HourRow = { hourLabel: string; candidateId: string; count: bigint };
-  const hourlyRows = pollingPlaceId
-    ? await prisma.$queryRaw<HourRow[]>(Prisma.sql`
-        SELECT to_char(date_trunc('hour', (COALESCE("capturedAt", "createdAt") AT TIME ZONE 'UTC') AT TIME ZONE ${election.timezone}), 'YYYY-MM-DD HH24:00') AS "hourLabel",
-               "candidateId" AS "candidateId",
-               COUNT(*)::bigint AS "count"
-        FROM "Vote"
-        WHERE "electionId" = ${election.id} AND "pollingPlaceId" = ${pollingPlaceId}
-        GROUP BY 1, 2
-        ORDER BY 1 ASC
-      `)
-    : await prisma.$queryRaw<HourRow[]>(Prisma.sql`
-        SELECT to_char(date_trunc('hour', (COALESCE("capturedAt", "createdAt") AT TIME ZONE 'UTC') AT TIME ZONE ${election.timezone}), 'YYYY-MM-DD HH24:00') AS "hourLabel",
-               "candidateId" AS "candidateId",
-               COUNT(*)::bigint AS "count"
-        FROM "Vote"
-        WHERE "electionId" = ${election.id}
-        GROUP BY 1, 2
-        ORDER BY 1 ASC
-      `);
+  const hourlyRows = await getCutRangeRows(election.id, election.timezone, pollingPlaceId);
 
   const byHour = new Map<string, Map<string, number>>();
   for (const row of hourlyRows) {
@@ -356,18 +338,11 @@ router.get("/overview", asyncHandler(async (req, res) => {
     byHour.get(row.hourLabel)!.set(row.candidateId, Number(row.count));
   }
 
-  const running = new Map<string, number>();
-  const hourly = [...byHour.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([hourLabel, hourMap]) => {
-    for (const candidate of candidates) {
-      running.set(candidate.id, (running.get(candidate.id) ?? 0) + (hourMap.get(candidate.id) ?? 0));
-    }
-    const cumulativeTotal = [...running.values()].reduce((a, b) => a + b, 0);
-    return {
-      hourLabel,
-      total: cumulativeTotal,
-      candidates: candidates.map(c => ({ candidateId: c.id, votes: running.get(c.id) ?? 0 }))
-    };
-  });
+  const hourly = [...byHour.entries()].map(([hourLabel, hourMap]) => ({
+    hourLabel,
+    total: [...hourMap.values()].reduce((a, b) => a + b, 0),
+    candidates: candidates.map(c => ({ candidateId: c.id, votes: hourMap.get(c.id) ?? 0 }))
+  }));
 
   res.json({ election, total, candidates: candidateResults, hourly, operators: operatorStats });
 }));
