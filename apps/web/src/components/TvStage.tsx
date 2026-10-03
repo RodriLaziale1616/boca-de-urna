@@ -62,10 +62,10 @@ export default function TvStage({ data, preview = false }: { data: TvData; previ
       </section>
 
       <aside className="tv-cuts-panel">
-        <div className="tv-cuts-head"><span>CORTES POR HORA</span><strong>Últimos cortes</strong></div>
+        <div className="tv-cuts-head"><span>CORTES PROGRAMADOS</span><strong>Por rangos horarios</strong></div>
         <div className="tv-cuts-list">
           {lastCuts.length ? lastCuts.map((cut, cutIndex) => <div className={`tv-cut ${cutIndex === 0 ? "latest" : ""}`} key={cut.hourLabel}>
-            <div className="tv-cut-hour"><strong>{cut.hourLabel.slice(-5)}</strong><span>{cutIndex === 0 ? "ÚLTIMO" : "CORTE"}</span></div>
+            <div className="tv-cut-hour"><strong>{cut.hourLabel}</strong><span>{cutIndex === 0 ? "ÚLTIMO" : "CORTE"}</span></div>
             <div className="tv-cut-values">
               {topCandidates.slice(0, 3).map(candidate => <div key={candidate.id}><span style={{ background: candidate.colorHex }}/><b>{cut.candidates.find(x => x.candidateId === candidate.id)?.votes ?? 0}</b></div>)}
             </div>
