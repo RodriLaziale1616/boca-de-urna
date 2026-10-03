@@ -107,19 +107,6 @@ router.post("/votes", requireCsrf, voteLimiter, asyncHandler(async (req, res) =>
     }
   }
 
-  const lastVote = await prisma.vote.findFirst({
-    where: { operatorId: user.id, electionId: election.id },
-    orderBy: { createdAt: "desc" },
-    select: { capturedAt: true, createdAt: true }
-  });
-  const previousCapturedAt = lastVote?.capturedAt ?? lastVote?.createdAt ?? null;
-  if (previousCapturedAt) {
-    const deltaMs = capturedAt.getTime() - previousCapturedAt.getTime();
-    if (deltaMs >= 0 && deltaMs < 700) {
-      return res.status(429).json({ error: "Esperá un instante antes de registrar otra respuesta" });
-    }
-  }
-
   try {
     await prisma.vote.create({
       data: {
