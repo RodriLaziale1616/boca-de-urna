@@ -12,7 +12,7 @@ router.use(requireAuth, requireRole(UserRole.OPERATOR));
 
 const voteLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 35,
+  limit: 100,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   keyGenerator: (req) => req.auth?.user.id ?? req.ip ?? "unknown",
@@ -66,11 +66,27 @@ router.get("/election", asyncHandler(async (req, res) => {
 router.post("/votes", requireCsrf, voteLimiter, asyncHandler(async (req, res) => {
   const body = z.object({
     candidateId: z.string().min(1).max(64),
-    requestId: z.string().uuid()
+    requestId: z.string().uuid(),
+    capturedAt: z.coerce.date().optional()
   }).parse(req.body);
 
   const user = req.auth!.user;
   if (!user.assignedElectionId) return res.status(409).json({ error: "Operador sin elección asignada" });
+
+  const existing = await prisma.vote.findUnique({ where: { requestId: body.requestId } });
+  if (existing) {
+    if (existing.operatorId !== user.id) return res.status(409).json({ error: "Identificador de registro no válido" });
+    return res.status(200).json({ ok: true, duplicate: true });
+  }
+
+  const now = new Date();
+  const capturedAt = body.capturedAt ?? now;
+  if (capturedAt.getTime() > now.getTime() + 5 * 60 * 1000) {
+    return res.status(400).json({ error: "La hora del dispositivo está adelantada. Verificá fecha y hora." });
+  }
+  if (capturedAt.getTime() < now.getTime() - 24 * 60 * 60 * 1000) {
+    return res.status(400).json({ error: "El registro pendiente es demasiado antiguo para sincronizarse automáticamente" });
+  }
 
   const [election, candidate] = await Promise.all([
     prisma.election.findUnique({ where: { id: user.assignedElectionId } }),
@@ -91,16 +107,17 @@ router.post("/votes", requireCsrf, voteLimiter, asyncHandler(async (req, res) =>
     }
   }
 
-  const existing = await prisma.vote.findUnique({ where: { requestId: body.requestId } });
-  if (existing) return res.status(200).json({ ok: true, duplicate: true });
-
   const lastVote = await prisma.vote.findFirst({
     where: { operatorId: user.id, electionId: election.id },
     orderBy: { createdAt: "desc" },
-    select: { createdAt: true }
+    select: { capturedAt: true, createdAt: true }
   });
-  if (lastVote && Date.now() - lastVote.createdAt.getTime() < 1200) {
-    return res.status(429).json({ error: "Esperá un instante antes de registrar otra respuesta" });
+  const previousCapturedAt = lastVote?.capturedAt ?? lastVote?.createdAt ?? null;
+  if (previousCapturedAt) {
+    const deltaMs = capturedAt.getTime() - previousCapturedAt.getTime();
+    if (deltaMs >= 0 && deltaMs < 700) {
+      return res.status(429).json({ error: "Esperá un instante antes de registrar otra respuesta" });
+    }
   }
 
   try {
@@ -110,7 +127,8 @@ router.post("/votes", requireCsrf, voteLimiter, asyncHandler(async (req, res) =>
         candidateId: candidate.id,
         operatorId: user.id,
         pollingPlaceId: user.pollingPlaceId,
-        requestId: body.requestId
+        requestId: body.requestId,
+        capturedAt
       }
     });
   } catch (error) {
