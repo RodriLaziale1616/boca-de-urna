@@ -39,7 +39,7 @@ app.use(express.json({ limit: "280kb" }));
 app.use(cookieParser());
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 1200,
+  limit: 10000,
   standardHeaders: "draft-7",
   legacyHeaders: false
 }));
