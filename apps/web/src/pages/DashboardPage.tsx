@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const operatorActive = data?.operators.filter(o => o.activity === "ACTIVE").length ?? 0;
 
   return <div className="stack-lg">
-    <div className="page-title-row"><div><div className="eyebrow">CENTRO DE CONTROL</div><h1>Resultados en tiempo real</h1><p>Acumulado, cortes por hora y rendimiento de operadores.</p></div><div className="live-badge"><span></span>EN VIVO</div></div>
+    <div className="page-title-row"><div><div className="eyebrow">CENTRO DE CONTROL</div><h1>Resultados en tiempo real</h1><p>Acumulado, cortes por rangos y rendimiento de operadores.</p></div><div className="live-badge"><span></span>EN VIVO</div></div>
 
     <div className="toolbar-card">
       <label>Elección<select value={electionId} onChange={e => setElectionId(e.target.value)}>{elections.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select></label>
@@ -78,8 +78,8 @@ export default function DashboardPage() {
         <div className="results-list">{visibleCandidates.map(c => <div className="result-row" key={c.id}><div className="result-id" style={{ background: c.colorHex }}>{c.ballotNumber || (c.isNoResponse ? "—" : "•")}</div><div className="result-main"><div className="result-top"><div><strong>{c.name}</strong><span>{c.listLabel || c.party || ""}</span></div><div className="result-count"><strong>{c.votes.toLocaleString("es-PY")}</strong><span>{c.percentage.toFixed(1).replace(".", ",")}%</span></div></div><div className="progress-track"><div style={{ width: `${Math.min(100, c.percentage)}%`, background: c.colorHex }}/></div></div></div>)}</div>
       </section>
 
-      <section className="panel-card"><div className="section-head"><div><h2><Clock3 size={18}/> Cortes por hora</h2><p>Acumulado automático según hora local de la elección.</p></div></div>
-        <div className="table-wrap"><table><thead><tr><th>Hora</th>{visibleCandidates.map(c => <th key={c.id}>{c.ballotNumber ? `Lista ${c.ballotNumber}` : c.name}</th>)}<th>Total</th></tr></thead><tbody>{data.hourly.length ? data.hourly.map(row => <tr key={row.hourLabel}><td>{row.hourLabel.slice(-5)}</td>{visibleCandidates.map(c => <td key={c.id}>{row.candidates.find(x => x.candidateId === c.id)?.votes ?? 0}</td>)}<td><strong>{row.total}</strong></td></tr>) : <tr><td colSpan={visibleCandidates.length + 2}>Todavía no hay registros.</td></tr>}</tbody></table></div>
+      <section className="panel-card"><div className="section-head"><div><h2><Clock3 size={18}/> Cortes por rangos</h2><p>Registros de cada franja: 07–09, 09–12, 12–14 y 14–16.</p></div></div>
+        <div className="table-wrap"><table><thead><tr><th>Rango</th>{visibleCandidates.map(c => <th key={c.id}>{c.ballotNumber ? `Lista ${c.ballotNumber}` : c.name}</th>)}<th>Total</th></tr></thead><tbody>{data.hourly.length ? data.hourly.map(row => <tr key={row.hourLabel}><td><strong>{row.hourLabel}</strong></td>{visibleCandidates.map(c => <td key={c.id}>{row.candidates.find(x => x.candidateId === c.id)?.votes ?? 0}</td>)}<td><strong>{row.total}</strong></td></tr>) : <tr><td colSpan={visibleCandidates.length + 2}>Todavía no hay registros dentro de los rangos definidos.</td></tr>}</tbody></table></div>
       </section>
 
       <section className="panel-card"><div className="section-head"><div><h2>Rendimiento de operadores</h2><p>Ordenado por cantidad de respuestas registradas.</p></div></div>
