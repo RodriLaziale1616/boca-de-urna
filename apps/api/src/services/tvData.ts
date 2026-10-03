@@ -1,5 +1,5 @@
-import { Prisma } from "@prisma/client";
-import { prisma } from "../db";
+ import { prisma } from "../db";
+import { getCutRangeRows } from "./cutRanges";
 
 export async function getTvDataByElection(electionId: string) {
   const election = await prisma.election.findUnique({ where: { id: electionId } });
@@ -36,16 +36,7 @@ export async function getTvDataByElection(electionId: string) {
       };
     });
 
-  type HourRow = { hourLabel: string; candidateId: string; count: bigint };
-  const hourlyRows = await prisma.$queryRaw<HourRow[]>(Prisma.sql`
-    SELECT to_char(date_trunc('hour', (COALESCE("capturedAt", "createdAt") AT TIME ZONE 'UTC') AT TIME ZONE ${election.timezone}), 'YYYY-MM-DD HH24:00') AS "hourLabel",
-           "candidateId" AS "candidateId",
-           COUNT(*)::bigint AS "count"
-    FROM "Vote"
-    WHERE "electionId" = ${election.id}
-    GROUP BY 1, 2
-    ORDER BY 1 ASC
-  `);
+  const hourlyRows = await getCutRangeRows(election.id, election.timezone);
 
   const byHour = new Map<string, Map<string, number>>();
   for (const row of hourlyRows) {
@@ -53,22 +44,14 @@ export async function getTvDataByElection(electionId: string) {
     byHour.get(row.hourLabel)!.set(row.candidateId, Number(row.count));
   }
 
-  const running = new Map<string, number>();
-  const hourly = [...byHour.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([hourLabel, hourMap]) => {
-      for (const candidate of candidates) {
-        running.set(candidate.id, (running.get(candidate.id) ?? 0) + (hourMap.get(candidate.id) ?? 0));
-      }
-      return {
-        hourLabel,
-        total: [...running.values()].reduce((sum, value) => sum + value, 0),
-        candidates: candidateResults.map(candidate => ({
-          candidateId: candidate.id,
-          votes: running.get(candidate.id) ?? 0
-        }))
-      };
-    });
+  const hourly = [...byHour.entries()].map(([hourLabel, hourMap]) => ({
+    hourLabel,
+    total: [...hourMap.values()].reduce((sum, value) => sum + value, 0),
+    candidates: candidateResults.map(candidate => ({
+      candidateId: candidate.id,
+      votes: hourMap.get(candidate.id) ?? 0
+    }))
+  }));
 
   return {
     election: {
