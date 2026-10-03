@@ -3,6 +3,12 @@ import { CheckCircle2, LockKeyhole, LogOut, MapPin, Maximize2, RotateCcw, WifiOf
 import { api } from "../lib/api";
 import type { AuthUser, Candidate } from "../types";
 
+type PendingVote = {
+  candidate: Candidate;
+  requestId: string;
+  attempted: boolean;
+};
+
 type KioskPayload = {
   election: {
     id: string;
@@ -21,6 +27,7 @@ type KioskPayload = {
 export default function OperatorPage({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [data, setData] = useState<KioskPayload | null>(null);
   const [selected, setSelected] = useState<Candidate | null>(null);
+  const [pendingVote, setPendingVote] = useState<PendingVote | null>(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -41,21 +48,52 @@ export default function OperatorPage({ user, onLogout }: { user: AuthUser; onLog
   async function choose(candidate: Candidate) {
     if (!data || busy || done || !online || data.election.status !== "ACTIVE") return;
     setError("");
+
+    if (pendingVote) {
+      setSelected(pendingVote.candidate);
+      setError("Hay un registro pendiente. Reintentá ese mismo envío antes de continuar.");
+      return;
+    }
+
+    const nextPending: PendingVote = {
+      candidate,
+      requestId: crypto.randomUUID(),
+      attempted: false
+    };
+    setPendingVote(nextPending);
+
     if (data.election.requireConfirmation) setSelected(candidate);
-    else await submitVote(candidate);
+    else await submitVote(nextPending);
   }
 
-  async function submitVote(candidate: Candidate) {
+  async function submitVote(pending: PendingVote) {
+    const attempted = { ...pending, attempted: true };
+    setPendingVote(attempted);
     setBusy(true); setError("");
     try {
       await api<{ ok: true }>("/api/operator/votes", {
         method: "POST",
-        body: JSON.stringify({ candidateId: candidate.id, requestId: crypto.randomUUID() })
+        body: JSON.stringify({ candidateId: pending.candidate.id, requestId: pending.requestId })
       });
-      setSelected(null); setDone(true);
+      setPendingVote(null);
+      setSelected(null);
+      setDone(true);
       window.setTimeout(() => setDone(false), Math.max(1, data?.election.resetDelaySeconds ?? 2) * 1000);
-    } catch (err) { setError(err instanceof Error ? err.message : "No se pudo registrar"); }
-    finally { setBusy(false); }
+    } catch (err) {
+      setSelected(pending.candidate);
+      const detail = err instanceof Error ? err.message : "No se pudo registrar";
+      setError(`No pudimos confirmar el registro. Reintentá para validar el mismo envío. ${detail}`);
+    } finally { setBusy(false); }
+  }
+
+  function cancelSelection() {
+    if (busy) return;
+    if (pendingVote?.attempted) {
+      setError("Este registro ya fue enviado. Reintentá para confirmar su estado antes de continuar.");
+      return;
+    }
+    setPendingVote(null);
+    setSelected(null);
   }
 
   if (!data) return <div className="kiosk-loading"><div className="brand-mark"><Vote size={25}/></div><p>{error || "Preparando encuesta..."}</p><button className="ghost-btn" onClick={load}><RotateCcw size={16}/>Reintentar</button></div>;
@@ -95,7 +133,7 @@ export default function OperatorPage({ user, onLogout }: { user: AuthUser; onLog
         <div className="privacy-line">No se solicita ni almacena ningún dato personal del votante.</div>
       </main>
 
-      {selected && <div className="modal-backdrop"><div className="confirm-card" style={{ "--candidate": selected.colorHex } as CSSProperties}><span>Confirmar respuesta</span><h2>{selected.name}</h2>{selected.listLabel && <p>{selected.listLabel}</p>}<div className="confirm-actions"><button className="ghost-btn" onClick={() => setSelected(null)} disabled={busy}>Volver</button><button className="primary-btn" onClick={() => submitVote(selected)} disabled={busy}>{busy ? "Registrando..." : "Confirmar"}</button></div></div></div>}
+      {selected && <div className="modal-backdrop"><div className="confirm-card" style={{ "--candidate": selected.colorHex } as CSSProperties}><span>{pendingVote?.attempted ? "Verificar registro" : "Confirmar respuesta"}</span><h2>{selected.name}</h2>{selected.listLabel && <p>{selected.listLabel}</p>}<div className="confirm-actions"><button className="ghost-btn" onClick={cancelSelection} disabled={busy || Boolean(pendingVote?.attempted)}>Volver</button><button className="primary-btn" onClick={() => pendingVote && submitVote(pendingVote)} disabled={busy || !pendingVote}>{busy ? "Registrando..." : pendingVote?.attempted ? "Reintentar" : "Confirmar"}</button></div></div></div>}
       {done && <div className="modal-backdrop success-backdrop"><div className="success-card"><CheckCircle2 size={54}/><h2>Respuesta registrada</h2><p>Muchas gracias por participar.</p></div></div>}
       <footer className="kiosk-footer">Operador: {user.name}</footer>
     </div>
