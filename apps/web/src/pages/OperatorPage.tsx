@@ -100,11 +100,14 @@ export default function OperatorPage({ user, onLogout }: { user: AuthUser; onLog
     setSyncing(true);
 
     try {
-      let queue = readQueue(data.election.id).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+      while (navigator.onLine) {
+        const queue = readQueue(data.election.id).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+        if (queue.length === 0) {
+          setError("");
+          break;
+        }
 
-      for (const item of queue) {
-        if (!navigator.onLine) break;
-
+        const item = queue[0];
         try {
           await api<{ ok: true; duplicate?: boolean }>("/api/operator/votes", {
             method: "POST",
@@ -120,12 +123,11 @@ export default function OperatorPage({ user, onLogout }: { user: AuthUser; onLog
           break;
         }
 
-        queue = queue.filter(queued => queued.requestId !== item.requestId);
-        writeQueue(data.election.id, queue);
+        const currentQueue = readQueue(data.election.id)
+          .filter(queued => queued.requestId !== item.requestId);
+        writeQueue(data.election.id, currentQueue);
         await sleep(750);
       }
-
-      if (queue.length === 0) setError("");
     } finally {
       syncingRef.current = false;
       setSyncing(false);
