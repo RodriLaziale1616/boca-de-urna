@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
 
+export const CUT_RANGE_LABELS = ["07 a 09", "09 a 12", "12 a 14", "14 a 16:30"] as const;
+
 export type CutRangeRow = {
   hourLabel: string;
   candidateId: string;
@@ -32,14 +34,14 @@ export async function getCutRangeRows(
           WHEN "localTime"::time >= TIME '07:00' AND "localTime"::time < TIME '09:00' THEN '07 a 09'
           WHEN "localTime"::time >= TIME '09:00' AND "localTime"::time < TIME '12:00' THEN '09 a 12'
           WHEN "localTime"::time >= TIME '12:00' AND "localTime"::time < TIME '14:00' THEN '12 a 14'
-          WHEN "localTime"::time >= TIME '14:00' AND "localTime"::time < TIME '16:00' THEN '14 a 16'
+          WHEN "localTime"::time >= TIME '14:00' AND "localTime"::time < TIME '16:30' THEN '14 a 16:30'
           ELSE NULL
         END AS "hourLabel",
         CASE
           WHEN "localTime"::time >= TIME '07:00' AND "localTime"::time < TIME '09:00' THEN 1
           WHEN "localTime"::time >= TIME '09:00' AND "localTime"::time < TIME '12:00' THEN 2
           WHEN "localTime"::time >= TIME '12:00' AND "localTime"::time < TIME '14:00' THEN 3
-          WHEN "localTime"::time >= TIME '14:00' AND "localTime"::time < TIME '16:00' THEN 4
+          WHEN "localTime"::time >= TIME '14:00' AND "localTime"::time < TIME '16:30' THEN 4
           ELSE NULL
         END AS "cutOrder"
       FROM localized
