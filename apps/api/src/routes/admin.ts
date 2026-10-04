@@ -6,7 +6,7 @@ import { prisma } from "../db";
 import { requireAuth, requireCsrf, requireRole } from "../auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { realtimeBus } from "../services/realtime";
-import { getCutRangeRows } from "../services/cutRanges";
+import { CUT_RANGE_LABELS, getCutRangeRows } from "../services/cutRanges";
 
 const router = Router();
 router.use(requireAuth, requireRole(UserRole.ADMIN));
@@ -115,6 +115,7 @@ router.post("/candidates", requireCsrf, asyncHandler(async (req, res) => {
 router.patch("/candidates/:id", requireCsrf, asyncHandler(async (req, res) => {
   const body = z.object({
     name: z.string().trim().min(2).max(100).optional(),
+    publicAlias: z.string().trim().max(80).nullable().optional(),
     listLabel: z.string().trim().max(80).nullable().optional(),
     party: z.string().trim().max(120).nullable().optional(),
     ballotNumber: z.string().trim().max(12).nullable().optional(),
@@ -127,7 +128,8 @@ router.patch("/candidates/:id", requireCsrf, asyncHandler(async (req, res) => {
   if (!current) return res.status(404).json({ error: "Candidato no encontrado" });
   const election = await prisma.election.findUnique({ where: { id: current.electionId } });
   if (!election) return res.status(404).json({ error: "Elección no encontrada" });
-  if (election.status !== "DRAFT") return res.status(409).json({ error: "Los candidatos quedan bloqueados al activar la elección" });
+  const changesOperationalData = Object.keys(body).some(key => key !== "publicAlias");
+  if (election.status !== "DRAFT" && changesOperationalData) return res.status(409).json({ error: "Los candidatos quedan bloqueados al activar la elección" });
   if (current.isNoResponse && body.active === false) return res.status(400).json({ error: "No responde debe permanecer disponible" });
 
   const candidate = await prisma.candidate.update({ where: { id: current.id }, data: body });
@@ -338,11 +340,14 @@ router.get("/overview", asyncHandler(async (req, res) => {
     byHour.get(row.hourLabel)!.set(row.candidateId, Number(row.count));
   }
 
-  const hourly = [...byHour.entries()].map(([hourLabel, hourMap]) => ({
-    hourLabel,
-    total: [...hourMap.values()].reduce((a, b) => a + b, 0),
-    candidates: candidates.map(c => ({ candidateId: c.id, votes: hourMap.get(c.id) ?? 0 }))
-  }));
+  const hourly = CUT_RANGE_LABELS.map(hourLabel => {
+    const hourMap = byHour.get(hourLabel) ?? new Map<string, number>();
+    return {
+      hourLabel,
+      total: [...hourMap.values()].reduce((a, b) => a + b, 0),
+      candidates: candidates.map(c => ({ candidateId: c.id, votes: hourMap.get(c.id) ?? 0 }))
+    };
+  });
 
   res.json({ election, total, candidates: candidateResults, hourly, operators: operatorStats });
 }));
