@@ -265,8 +265,9 @@ export default function FlyerPage() {
     try {
       const canvas = await renderCanvas();
       const image = canvas.toDataURL("image/png");
-      const popup = window.open("", "_blank", "noopener,noreferrer");
+      const popup = window.open("", "_blank");
       if (!popup) return;
+      popup.opener = null;
       popup.document.write(`<!doctype html><html><head><title>Flyer Boca de Urna</title><style>@page{margin:0}body{margin:0;display:grid;place-items:center;background:white}img{max-width:100vw;max-height:100vh;object-fit:contain}</style></head><body><img src="${image}" onload="setTimeout(()=>window.print(),200)"></body></html>`);
       popup.document.close();
     } finally {
