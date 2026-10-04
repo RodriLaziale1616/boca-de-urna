@@ -75,6 +75,7 @@ model Candidate {
   id           String   @id @default(cuid())
   electionId   String
   name         String
+  publicAlias  String?
   listLabel    String?
   party        String?
   ballotNumber String?
