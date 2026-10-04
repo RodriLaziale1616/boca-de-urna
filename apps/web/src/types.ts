@@ -38,6 +38,7 @@ export interface Candidate {
   id: string;
   electionId?: string;
   name: string;
+  publicAlias?: string | null;
   listLabel: string | null;
   party: string | null;
   ballotNumber: string | null;
