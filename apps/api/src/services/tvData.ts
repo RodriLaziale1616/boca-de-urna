@@ -1,5 +1,5 @@
  import { prisma } from "../db";
-import { getCutRangeRows } from "./cutRanges";
+import { CUT_RANGE_LABELS, getCutRangeRows } from "./cutRanges";
 
 export async function getTvDataByElection(electionId: string) {
   const election = await prisma.election.findUnique({ where: { id: electionId } });
@@ -44,14 +44,17 @@ export async function getTvDataByElection(electionId: string) {
     byHour.get(row.hourLabel)!.set(row.candidateId, Number(row.count));
   }
 
-  const hourly = [...byHour.entries()].map(([hourLabel, hourMap]) => ({
-    hourLabel,
-    total: [...hourMap.values()].reduce((sum, value) => sum + value, 0),
-    candidates: candidateResults.map(candidate => ({
-      candidateId: candidate.id,
-      votes: hourMap.get(candidate.id) ?? 0
-    }))
-  }));
+  const hourly = CUT_RANGE_LABELS.map(hourLabel => {
+    const hourMap = byHour.get(hourLabel) ?? new Map<string, number>();
+    return {
+      hourLabel,
+      total: [...hourMap.values()].reduce((sum, value) => sum + value, 0),
+      candidates: candidateResults.map(candidate => ({
+        candidateId: candidate.id,
+        votes: hourMap.get(candidate.id) ?? 0
+      }))
+    };
+  });
 
   return {
     election: {
